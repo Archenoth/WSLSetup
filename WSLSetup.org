@@ -1,0 +1,201 @@
+#+TITLE:Windows 10 WSL setup
+#+AUTHOR:Archenoth
+#+EMAIL:archenoth@gmail.com
+
+WSL is nice on its own, but I've found a few ways to make it integrate with Windows a lot nicer!
+So this is what I do when I set up WSL!
+
+* Symlinks
+The first thing I do when I set up a new WSL instance is make a few symlinks between the two systems.
+
+The first one is for the root drive:
+#+begin_src sh :dir /sudo:root@localhost:/
+  ln -s /mnt/c /host
+#+end_src
+
+Then I add a few folders in my home folder that make the link between Windows and Linux pretty seamless. (If you already have these folders, you might need to move or nuke them first):
+#+begin_src sh
+  WINDDIR=`/host/Windows/System32/cmd.exe /c "echo %userprofile%" | cut -d'\' -f3`
+
+  for i in Desktop Documents Downloads Videos Music Pictures; do
+    ln -s "/mnt/c/Users/$WINDDIR/$i/" .
+  done
+
+  mkdir Documents/Code Documents/Writing
+  ln -s Documents/Code Documents/Writing .
+#+end_src
+
+* Base programs
+After installing [[https://chocolatey.org/][Chocolatey]], some essential programs for me to use WSL include:
+#+begin_src bat :tangle ~/Desktop/install-essentials.bat
+  choco install conemu xming autohotkey
+#+end_src
+
+(This command needs to be run from an elevated command prompt, of course.)
+
+My configuration for ConEmu is basically just to make it look like a simple terminal, since I don't actually care much for the extra features in it.
+It's a pretty big XML file, so I'm not gonna include this one inline. You can just grab it [[./ConEmu.xml][here]].
+
+For XMing, I update my [[~/.Xresources][.Xresources]] file to get a slightly nicer looking X11:
+#+begin_src conf :tangle ~/.Xresources
+  Xft.antialias: 1
+  Xft.dpi: 96
+  Xft.hinting: 1
+  Xft.hintstyle: hintsfull
+  Xft.lcdfilter: lcddefault
+  Xft.rgba: rgb
+#+end_src
+
+Then I edit my [[~/.profile]] to include things like the following at the end:
+#+begin_src sh
+  # Allow graphical Linux programs to know how to connect to XMing
+  export DISPLAY=127.0.0.1:0
+
+  # Make XMing look nicer
+  xrdb -merge $HOME/.Xresources
+#+end_src
+
+For AutoHotKey, I make a little script to start ConEmu when I hit =Ctrl + Alt + T=, just like the default keybinding in a lot of Linux window managers.
+#+begin_src ahk :tangle ~/Code/ahk/terminal.ahk
+  ^!t::
+      Run, C:\Program Files\ConEmu\ConEmu64.exe bash -cur_console:n
+  Return
+#+end_src
+
+I also make a little vbscript file to run XMing, and then to start bash once (to run my .profile with the Linux-side XMing configuration):
+#+begin_src vbscript :tangle ~/Code/vbs/start-xming-profile.vbs
+  CreateObject("Wscript.Shell").Run """C:\Program Files (x86)\Xming\Xming.exe"" :0 -clipboard -multiwindow", 0, False
+  CreateObject("Wscript.Shell").Run "bash -lic exit", 0, True
+#+end_src
+
+After making these, I copy shortcuts for that *last two* scripts above into my =shell:startup= folder. (You can access by typing that into the run dialog you get by hitting =Win + R=)
+
+That will make this stuff all start on login, and without popping up any ugly command windows on startup. (That's why I used vbscript here--to squelch the command prompt popups)
+
+* Startup services
+To get Linux *services* starting on Windows start (Before anyone logs in), I create a startup script in /etc/ named after the user that will run it, so in my case, I call it =rc.arch.local=:
+#+begin_src sh :tangle /sudo:root@localhost:/etc/rc.arch.local (identity #o744)
+  #!/bin/bash
+  service cron start
+  service ssh start
+#+end_src
+
+I then add my user to a sudoers files to allow this to be run as root without a password:
+#+begin_src sh :tangle /sudo:root@localhost:/etc/sudoers.d/archrc
+  # Startup script access for default user
+  archenoth ALL=(root) NOPASSWD: /etc/rc.arch.local
+#+end_src
+
+*Note:* If you tangled the above code block instead of just copying it into  [[/sudo:root@localhost:/etc/sudoers][/etc/sudoers]], you'll need to uncomment the =#includedir /etc/sudoers.d= at the end of that file.
+
+In Windows, I open up the Task Scheduler and make scheduled tasks to run the [[/sudo:root@localhost:/etc/rc.arch.local][/etc/rc.arch.local]] file with passwordless sudo when the computer starts.
+
+This is what the task I made looks like exported as XML (You may need to change the user in here if you are planning on importing it into your Task Scheduler):
+#+begin_src xml :tangle ~/Desktop/WSL rc.arch.local
+  <?xml version="1.0" encoding="UTF-16"?>
+  <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+    <RegistrationInfo>
+      <Date>2019-11-08T12:49:06.8481246</Date>
+      <Author>JIRACHI\Archenoth</Author>
+      <Description>Starts the Linux Subsystem rc.arch.local script</Description>
+      <URI>\WSL rc.arch.local</URI>
+    </RegistrationInfo>
+    <Triggers>
+      <BootTrigger>
+        <Enabled>true</Enabled>
+      </BootTrigger>
+    </Triggers>
+    <Principals>
+      <Principal id="Author">
+        <UserId>S-1-5-21-3695860422-1816032588-548272057-1001</UserId>
+        <LogonType>S4U</LogonType>
+        <RunLevel>LeastPrivilege</RunLevel>
+      </Principal>
+    </Principals>
+    <Settings>
+      <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+      <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+      <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+      <AllowHardTerminate>true</AllowHardTerminate>
+      <StartWhenAvailable>true</StartWhenAvailable>
+      <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+      <IdleSettings>
+        <StopOnIdleEnd>true</StopOnIdleEnd>
+        <RestartOnIdle>false</RestartOnIdle>
+      </IdleSettings>
+      <AllowStartOnDemand>true</AllowStartOnDemand>
+      <Enabled>true</Enabled>
+      <Hidden>false</Hidden>
+      <RunOnlyIfIdle>false</RunOnlyIfIdle>
+      <WakeToRun>false</WakeToRun>
+      <ExecutionTimeLimit>PT72H</ExecutionTimeLimit>
+      <Priority>7</Priority>
+    </Settings>
+    <Actions Context="Author">
+      <Exec>
+        <Command>C:\Windows\System32\bash.exe</Command>
+        <Arguments>-c "sudo /etc/rc.arch.local"</Arguments>
+      </Exec>
+    </Actions>
+  </Task>
+#+end_src
+
+I didn't bother with vbscript for this one since it runs before I even log on, so there still aren't any command prompt popups.
+
+And that about covers the main tweaks I make! Feel free to steal as many of these ideas as you like..! ^^
+
+* Tweaks
+These aren't as major, but they are nice little things I sometimes enjoy being able to use.
+
+** Using Linux editors from the start menu
+If you wanted to start, say, Emacs from the start menu. You can make a VBScript like this somewhere:
+#+begin_src vbscript :tangle ~/Code/vbs/emacs.vbs
+  If WScript.Arguments.Count > 0 Then
+     CreateObject("Wscript.Shell").Run "bash -c ""cd && DISPLAY=:0 emacs $(wslpath '" & WScript.Arguments(0) & "')""", 0, True
+  Else
+     CreateObject("Wscript.Shell").Run "bash -c 'cd && DISPLAY=:0 emacs'", 0, True
+  End If
+#+end_src
+
+Then make a shortcut to it in your start menu!
+
+You can even open files with it like this...though I'll admit it's a little brittle. (I haven't worked on making it accept all arguments yet, but this is a convenient baseline in the meantime)
+
+** Run exes without writing ".exe"
+You can use =command_not_found_handle= to automatically append =.exe= to your commands if they don't exist on Linux and try again.
+All you need to do is modify the handle in [[/sudo:root@localhost:/etc/bash.bashrc::command_not_found_handle][bash.bashrc]] to look like:
+
+#+begin_src sh
+  if [ -x /usr/lib/command-not-found -o -x /usr/share/command-not-found/command-not-found ]; then
+      function command_not_found_handle {
+          if which "$1.exe" 1>/dev/null 2>&1; then
+              EXE="$1.exe"
+              shift
+              $EXE $*
+              return $?
+          else
+              # check because c-n-f could've been removed in the meantime
+              if [ -x /usr/lib/command-not-found ]; then
+                  /usr/lib/command-not-found -- "$1"
+                  return $?
+              elif [ -x /usr/share/command-not-found/command-not-found ]; then
+                  /usr/share/command-not-found/command-not-found -- "$1"
+                  return $?
+              else
+                  printf "%s: command not found\n" "$1" >&2
+                  return 127
+              fi
+          fi
+      }
+  fi
+#+end_src
+
+Since WSL does pathname translation, this means you can do crazy things like =explorer Code/ahk= and it will open that code folder with =explorer.exe= properly if it's in your $PATH!
+
+*Note:* Programs run this way won't work on paths that only WSL can see. Which is another good reason to have [[Symlinks][symlinks between your two systems set up]]!
+
+** Turn off dings every time you hit tab (And other things)
+I don't really like how tab completion, or many other actions in Linux make my computer ding at me, so I like to replace the =bell-style= in [[/sudo:root@localhost:/etc/inputrc::bell-style][/etc/inputrc]] to be =set bell-style none=.
+
+* Conclusion
+I mostly wrote this file for myself, but if you stumbled across it somehow, I hope you found these tricks useful!
