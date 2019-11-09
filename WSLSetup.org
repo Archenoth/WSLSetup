@@ -14,7 +14,7 @@ The first one is for the root drive:
 #+end_src
 
 Then I add a few folders in my home folder that make the link between Windows and Linux pretty seamless. (If you already have these folders, you might need to move or nuke them first):
-#+begin_src sh
+#+begin_src sh :dir ~
   WINDDIR=`/host/Windows/System32/cmd.exe /c "echo %userprofile%" | cut -d'\' -f3`
 
   for i in Desktop Documents Downloads Videos Music Pictures; do
@@ -72,16 +72,20 @@ After making these, I copy shortcuts for that *last two* scripts above into my =
 
 That will make this stuff all start on login, and without popping up any ugly command windows on startup. (That's why I used vbscript here--to squelch the command prompt popups)
 
+One last quirk to deal with, is the starting folder =Ctrl + Alt + T= likes to open WSL in.
+
+I often just put a =cd= at the end of my [[~/.bashrc][.bashrc]] to change back to my home folder.
+
 * Startup services
 To get Linux *services* starting on Windows start (Before anyone logs in), I create a startup script in /etc/ named after the user that will run it, so in my case, I call it =rc.arch.local=:
-#+begin_src sh :tangle /sudo:root@localhost:/etc/rc.arch.local :tangle-mode (identity #o744)
+#+begin_src sh :tangle /sudo:root@localhost:/etc/rc.arch.local :tangle-mode (identity #o500)
   #!/bin/bash
   service cron start
   service ssh start
 #+end_src
 
 I then add my user to a sudoers files to allow this to be run as root without a password:
-#+begin_src sh :tangle /sudo:root@localhost:/etc/sudoers.d/archrc
+#+begin_src sh :tangle /sudo:root@localhost:/etc/sudoers.d/archrc :tangle-mode (identity #o400)
   # Startup script access for default user
   archenoth ALL=(root) NOPASSWD: /etc/rc.arch.local
 #+end_src
