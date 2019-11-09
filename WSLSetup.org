@@ -74,7 +74,7 @@ That will make this stuff all start on login, and without popping up any ugly co
 
 * Startup services
 To get Linux *services* starting on Windows start (Before anyone logs in), I create a startup script in /etc/ named after the user that will run it, so in my case, I call it =rc.arch.local=:
-#+begin_src sh :tangle /sudo:root@localhost:/etc/rc.arch.local (identity #o744)
+#+begin_src sh :tangle /sudo:root@localhost:/etc/rc.arch.local :tangle-mode (identity #o744)
   #!/bin/bash
   service cron start
   service ssh start
@@ -85,8 +85,6 @@ I then add my user to a sudoers files to allow this to be run as root without a 
   # Startup script access for default user
   archenoth ALL=(root) NOPASSWD: /etc/rc.arch.local
 #+end_src
-
-*Note:* If you tangled the above code block instead of just copying it into  [[/sudo:root@localhost:/etc/sudoers][/etc/sudoers]], you'll need to uncomment the =#includedir /etc/sudoers.d= at the end of that file.
 
 In Windows, I open up the Task Scheduler and make scheduled tasks to run the [[/sudo:root@localhost:/etc/rc.arch.local][/etc/rc.arch.local]] file with passwordless sudo when the computer starts.
 
