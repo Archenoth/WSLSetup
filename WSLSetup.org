@@ -93,7 +93,7 @@ I then add my user to a sudoers files to allow this to be run as root without a 
 In Windows, I open up the Task Scheduler and make scheduled tasks to run the [[/sudo:root@localhost:/etc/rc.arch.local][/etc/rc.arch.local]] file with passwordless sudo when the computer starts.
 
 This is what the task I made looks like exported as XML (You may need to change the user in here if you are planning on importing it into your Task Scheduler):
-#+begin_src xml :tangle ~/Desktop/WSL rc.arch.local
+#+begin_src xml :tangle ~/Desktop/WSL rc.arch.local.xml
   <?xml version="1.0" encoding="UTF-16"?>
   <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
     <RegistrationInfo>
