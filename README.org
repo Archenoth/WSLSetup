@@ -1,6 +1,10 @@
 #+TITLE:Windows 10 WSL setup
 #+AUTHOR:Archenoth
 #+EMAIL:archenoth@gmail.com
+:SETTINGS:
+#+STARTUP: hidestars inlineimages
+#+DRAWERS: SETTINGS
+:END:
 
 WSL is nice on its own, but I've found a few ways to make it integrate with Windows a lot nicer!
 So this is what I do when I set up WSL!
@@ -8,33 +12,77 @@ So this is what I do when I set up WSL!
 * Symlinks
 The first thing I do when I set up a new WSL instance is make a few symlinks between the two systems.
 
-The first one is for the root drive:
+The first one is for the root drive (Requires root):
 #+begin_src sh :dir /sudo:root@localhost:/
   ln -s /mnt/c /host
 #+end_src
 
-Then I add a few folders in my home folder that make the link between Windows and Linux pretty seamless. (If you already have these folders, you might need to move or nuke them first):
-#+begin_src sh :dir ~
-  WINDDIR=`/host/Windows/System32/cmd.exe /c "echo %userprofile%" | cut -d'\' -f3`
+Then I add a few folders in my home folder that make the link between Windows and Linux pretty seamless. (If you already have these folders, you might need to move or nuke them first)
 
+If you aren't running this from Emacs, you can hit =[Windows] + [R]=, type "=%userprofile%=" and hit =[Enter]=. Then hit =[Ctrl] + [L]= type "=bash=" and =[Enter]= again.
+This should put you in correct folder this should be run from.
+#+begin_src sh :dir (string-trim (shell-command-to-string "wslpath `cmd.exe /c 'echo %USERPROFILE%'`"))
   for i in Desktop Documents Downloads Videos Music Pictures; do
-    ln -s "/mnt/c/Users/$WINDDIR/$i/" .
+    ln -s $i ~
   done
 
-  mkdir Documents/Code Documents/Writing
-  ln -s Documents/Code Documents/Writing .
+  mkdir ~/Documents/Code ~/Documents/Writing
+  ln -s ~/Documents/Code ~/Documents/Writing ~
 #+end_src
+
 
 * Base programs
-After installing [[https://chocolatey.org/][Chocolatey]], some essential programs for me to use WSL include:
+After installing [[https://chocolatey.org/][Chocolatey]], installing some essential programs can be done from the following in an /elevated/ command prompt.
 #+begin_src bat :tangle ~/Desktop/install-essentials.bat
-  choco install conemu xming autohotkey
+  choco install xming autohotkey wsltty -y
 #+end_src
 
-(This command needs to be run from an elevated command prompt, of course.)
+And after that's done, the wsltty terminal can be set up with the following:
+#+begin_src sh :shcmd "cmd.exe"
+  C:\ProgramData\Chocolatey\lib\wsltty\tools\wslttyinstall\install.bat
+#+end_src
 
-My configuration for ConEmu is basically just to make it look like a simple terminal, since I don't actually care much for the extra features in it.
-It's a pretty big XML file, so I'm not gonna include this one inline. You can just grab it [[./ConEmu.xml][here]].
+My configuration for wsltty is basically just to make it look like a simple and slightly transparent terminal:
+[[./mintty.png]]
+
+This goes in =%APPDATA%\wsltty\config=
+#+begin_src conf :tangle (string-trim (shell-command-to-string "wslpath `cmd.exe /c 'echo %APPDATA%/wsltty/config'`"))
+ThemeFile=dainty-monokai-night-mod
+Transparency=5
+OpaqueWhenFocused=no
+CursorType=block
+Font=Consolas
+FontHeight=11
+ZoomShortcuts=no
+AltFnShortcuts=no
+BackgroundColour=0,0,0
+#+end_src
+
+The above theme is follows, and goes in =%APPDATA%\wsltty\themes\dainty-monokai-night-mod= (Originally from [[https://github.com/alexanderte/dainty-wsltty][here]], and modified slightly for contrast):
+#+begin_src conf :tangle (string-trim (shell-command-to-string "wslpath `cmd.exe /c 'echo %APPDATA%/wsltty/themes/dainty-monokai-night-mod'`"))
+# source: https://github.com/alexanderte/dainty-wsltty
+# MIT License
+
+BackgroundColour=40, 40, 40
+Black=51, 51, 51
+Blue=106, 126, 200
+BoldBlack=102, 102, 102
+BoldBlue=129, 154, 255
+BoldCyan=102, 217, 239
+BoldGreen=166, 226, 46
+BoldMagenta=195, 159, 255
+BoldRed=249, 38, 114
+BoldWhite=248, 248, 242
+BoldYellow=226, 226, 46
+CursorColour=248, 248, 240
+Cyan=86, 173, 188
+ForegroundColour=222, 222, 222
+Green=134, 180, 43
+Magenta=195, 159, 255
+Red=196, 38, 94
+White=227, 227, 221
+Yellow=179, 180, 43
+#+end_src
 
 For XMing, I update my [[~/.Xresources][.Xresources]] file to get a slightly nicer looking X11:
 #+begin_src conf :tangle ~/.Xresources
@@ -55,10 +103,10 @@ Then I edit my [[~/.profile]] to include things like the following at the end:
   xrdb -merge $HOME/.Xresources
 #+end_src
 
-For AutoHotKey, I make a little script to start ConEmu when I hit =Ctrl + Alt + T=, just like the default keybinding in a lot of Linux window managers.
+For AutoHotKey, I make a little script to start wsltty when I hit =Ctrl + Alt + T=, just like the default keybinding in a lot of Linux window managers.
 #+begin_src ahk :tangle ~/Code/ahk/terminal.ahk
   ^!t::
-      Run, C:\Program Files\ConEmu\ConEmu64.exe bash -cur_console:n
+      Run, C:\Users\Archenoth\AppData\Local\wsltty\bin\mintty.exe --WSL= --configdir="%APPDATA%\wsltty" -~
   Return
 #+end_src
 
@@ -71,10 +119,6 @@ I also make a little vbscript file to run XMing, and then to start bash once (to
 After making these, I copy shortcuts for that *last two* scripts above into my =shell:startup= folder. (You can access by typing that into the run dialog you get by hitting =Win + R=)
 
 That will make this stuff all start on login, and without popping up any ugly command windows on startup. (That's why I used vbscript here--to squelch the command prompt popups)
-
-One last quirk to deal with, is the starting folder =Ctrl + Alt + T= likes to open WSL in.
-
-I often just put a =cd= at the end of my [[~/.bashrc][.bashrc]] to change back to my home folder.
 
 * Startup services
 To get Linux *services* starting on Windows start (Before anyone logs in), I create a startup script in /etc/ named after the user that will run it, so in my case, I call it =rc.arch.local=:
@@ -149,19 +193,35 @@ And that about covers the main tweaks I make! Feel free to steal as many of thes
 * Tweaks
 These aren't as major, but they are nice little things I sometimes enjoy being able to use.
 
-** Using Linux editors from the start menu
-If you wanted to start, say, Emacs from the start menu. You can make a VBScript like this somewhere:
-#+begin_src vbscript :tangle ~/Code/vbs/emacs.vbs
-  If WScript.Arguments.Count > 0 Then
-     CreateObject("Wscript.Shell").Run "bash -c ""cd && DISPLAY=:0 emacs $(wslpath '" & WScript.Arguments(0) & "')""", 0, True
-  Else
-     CreateObject("Wscript.Shell").Run "bash -c 'cd && DISPLAY=:0 emacs'", 0, True
-  End If
+** Using Linux programs from cmd.exe
+I wrote a little Windows binary that, if you rename it to a Linux command, that Linux command will run. So if you like having git.exe on your path, you can use the Linux version with your Linux SSH config.
+
+To set it up, you can run the following:
+#+begin_src sh
+  mkdir -p /host/Oshawott/bin
+  wget https://github.com/Archenoth/wsl_proxy/releases/download/0.1.0/wsl_proxy.exe -O /host/Oshawott/wsl_proxy.exe
+
+  remaining=1023
+  find /bin /usr/bin /usr/local/bin /usr/sbin -executable -type f -maxdepth 1 ! -name bash -printf "%f\n" \
+      | sort | uniq | while read bin; do
+      echo "Linking $bin"
+      if [ "$remaining" -le "0" ]; then
+          remaining=1023
+          cp /host/Oshawott/wsl_proxy.exe /host/Oshawott/wsl_proxy2.exe
+          mv /host/Oshawott/wsl_proxy.exe "/host/Oshawott/bin/$bin.exe"
+          mv /host/Oshawott/wsl_proxy2.exe /host/Oshawott/wsl_proxy.exe
+      else
+          remaining=$((remaining-1))
+          ln /host/Oshawott/wsl_proxy.exe "/host/Oshawott/bin/$bin.exe"
+      fi
+  done
 #+end_src
 
-Then make a shortcut to it in your start menu!
+This will download the =wsl_proxy.exe= program, and link every executable in a number of bin folders likely on your =$PATH=. (We aren't gonna use =$PATH= proper since it will return many executables that aren't actually if you have any Windows paths in there)
 
-You can even open files with it like this...though I'll admit it's a little brittle. (I haven't worked on making it accept all arguments yet, but this is a convenient baseline in the meantime)
+The 1023 links per copy business is because each file can have only a maximum of 1024 links at any given time. (And yes, WSL hardlinks work on Windows)
+
+To use this, you'll need to change your "Path" in =sysdm.cpl= under "Advanced" -> "Environment Variables" -> "User variables for <you>" to include =C:\Oshawott\bin=.
 
 ** Run exes without writing ".exe"
 You can use =command_not_found_handle= to automatically append =.exe= to your commands if they don't exist on Linux and try again.
