@@ -199,7 +199,7 @@ I wrote a little Windows binary that, if you rename it to a Linux command, that 
 To set it up, you can run the following:
 #+begin_src sh
   mkdir -p /host/Oshawott/bin
-  wget https://github.com/Archenoth/wsl_proxy/releases/download/0.1.0/wsl_proxy.exe -O /host/Oshawott/wsl_proxy.exe
+  wget https://github.com/Archenoth/wsl_proxy/releases/download/0.2.0/wsl_proxy.exe -O /host/Oshawott/wsl_proxy.exe
 
   remaining=1023
   find /bin /usr/bin /usr/local/bin /usr/sbin -executable -type f -maxdepth 1 ! -name bash -printf "%f\n" \
